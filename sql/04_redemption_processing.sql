@@ -1,0 +1,89 @@
+
+-- =========================================================
+-- SKYPOINTS: REDEMPTION JSON PROCESSING
+-- Assessment Requirement 4
+-- =========================================================
+
+-- 1. Flatten and transform nested redemption transactions
+INSERT OVERWRITE INTO SKYPOINTS_DB.STAGING.REDEMPTION_TRANSACTIONS (
+    MEMBER_ID,
+    FEED_DATE,
+    TXN_ID,
+    TXN_DATE,
+    PARTNER,
+    MILES_REDEEMED,
+    STATUS,
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+)
+SELECT
+    R.RAW_DATA:member_id::VARCHAR AS MEMBER_ID,
+
+    COALESCE(
+        TRY_TO_DATE(R.RAW_DATA:feed_date::VARCHAR, 'YYYY-MM-DD'),
+        TRY_TO_DATE(R.RAW_DATA:feed_date::VARCHAR, 'YYYYMMDD')
+    ) AS FEED_DATE,
+
+    T.VALUE:txn_id::VARCHAR AS TXN_ID,
+
+    COALESCE(
+        TRY_TO_DATE(T.VALUE:txn_date::VARCHAR, 'YYYY-MM-DD'),
+        TRY_TO_DATE(T.VALUE:txn_date::VARCHAR, 'YYYYMMDD')
+    ) AS TXN_DATE,
+
+    T.VALUE:partner::VARCHAR AS PARTNER,
+    TRY_TO_NUMBER(T.VALUE:miles_redeemed::VARCHAR) AS MILES_REDEEMED,
+    T.VALUE:status::VARCHAR AS STATUS,
+    R.SOURCE_FILE,
+    R.LOAD_TIMESTAMP
+
+FROM SKYPOINTS_DB.RAW.REDEMPTION_JSON R,
+LATERAL FLATTEN(
+    INPUT => COALESCE(
+        R.RAW_DATA:redemptions,
+        R.RAW_DATA:transactions
+    )
+) T
+WHERE T.VALUE:txn_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY T.VALUE:txn_id::VARCHAR
+    ORDER BY R.LOAD_TIMESTAMP DESC, R.SOURCE_FILE DESC
+) = 1;
+
+
+-- 2. Load processed transactions into the target table
+INSERT OVERWRITE INTO SKYPOINTS_DB.TARGET.REDEMPTION_TRANSACTIONS (
+    MEMBER_ID,
+    FEED_DATE,
+    TXN_ID,
+    TXN_DATE,
+    PARTNER,
+    MILES_REDEEMED,
+    STATUS,
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+)
+SELECT
+    MEMBER_ID,
+    FEED_DATE,
+    TXN_ID,
+    TXN_DATE,
+    PARTNER,
+    MILES_REDEEMED,
+    STATUS,
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+FROM SKYPOINTS_DB.STAGING.REDEMPTION_TRANSACTIONS;
+
+
+-- 3. Verify flattened redemption transactions
+SELECT
+    MEMBER_ID,
+    FEED_DATE,
+    TXN_ID,
+    TXN_DATE,
+    PARTNER,
+    MILES_REDEEMED,
+    STATUS
+FROM SKYPOINTS_DB.TARGET.REDEMPTION_TRANSACTIONS
+ORDER BY TXN_ID;
