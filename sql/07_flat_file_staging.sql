@@ -1,0 +1,68 @@
+
+BEGIN TRANSACTION;
+
+DELETE FROM SKYPOINTS_DB.STAGING.MEMBER_PROFILE
+WHERE SOURCE_FILE = 'members_sample.txt';
+
+INSERT INTO SKYPOINTS_DB.STAGING.MEMBER_PROFILE (
+    MEMBER_NAME,
+    MEMBER_ID,
+    ENROLLMENT_DATE,
+    LAST_FLIGHT_DATE,
+    TIER_CODE,
+    AGENT_NAME,
+    STATE,
+    COUNTRY,
+    POST_CODE,
+    DOB,
+    IS_ACTIVE,
+    AGE,
+    STALE_MEMBER,
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+)
+SELECT
+    MEMBER_NAME,
+    MEMBER_ID,
+    TRY_TO_DATE(ENROLLMENT_DATE, 'YYYYMMDD'),
+    TRY_TO_DATE(LAST_FLIGHT_DATE, 'YYYYMMDD'),
+    TIER_CODE,
+    AGENT_NAME,
+    STATE,
+    COUNTRY,
+    POST_CODE,
+    TRY_TO_DATE(DOB, 'MMDDYYYY'),
+    IS_ACTIVE,
+    DATEDIFF(
+        YEAR,
+        TRY_TO_DATE(DOB, 'MMDDYYYY'),
+        CURRENT_DATE()
+    )
+    - IFF(
+        DATEADD(
+            YEAR,
+            DATEDIFF(
+                YEAR,
+                TRY_TO_DATE(DOB, 'MMDDYYYY'),
+                CURRENT_DATE()
+            ),
+            TRY_TO_DATE(DOB, 'MMDDYYYY')
+        ) > CURRENT_DATE(),
+        1,
+        0
+    ),
+    IFF(
+        DATEDIFF(
+            DAY,
+            TRY_TO_DATE(LAST_FLIGHT_DATE, 'YYYYMMDD'),
+            CURRENT_DATE()
+        ) > 90,
+        TRUE,
+        FALSE
+    ),
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+FROM SKYPOINTS_DB.RAW.MEMBER_PROFILE
+WHERE SOURCE_FILE = 'members_sample.txt';
+
+COMMIT;
