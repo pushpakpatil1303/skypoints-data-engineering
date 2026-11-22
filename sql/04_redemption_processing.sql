@@ -1,10 +1,4 @@
-
--- =========================================================
--- SKYPOINTS: REDEMPTION JSON PROCESSING
--- Assessment Requirement 4
--- =========================================================
-
--- 1. Flatten and transform nested redemption transactions
+-- Flatten and transform nested redemption transactions
 INSERT OVERWRITE INTO SKYPOINTS_DB.STAGING.REDEMPTION_TRANSACTIONS (
     MEMBER_ID,
     FEED_DATE,
@@ -51,7 +45,7 @@ QUALIFY ROW_NUMBER() OVER (
 ) = 1;
 
 
--- 2. Load processed transactions into the target table
+-- Load processed transactions into the target table
 INSERT OVERWRITE INTO SKYPOINTS_DB.TARGET.REDEMPTION_TRANSACTIONS (
     MEMBER_ID,
     FEED_DATE,
@@ -76,7 +70,7 @@ SELECT
 FROM SKYPOINTS_DB.STAGING.REDEMPTION_TRANSACTIONS;
 
 
--- 3. Verify flattened redemption transactions
+-- Verify flattened redemption transactions
 SELECT
     MEMBER_ID,
     FEED_DATE,

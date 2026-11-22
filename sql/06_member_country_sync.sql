@@ -1,6 +1,4 @@
-
 USE DATABASE SKYPOINTS_DB;
-
 BEGIN TRANSACTION;
 
 -- Remove globally identified members whose latest country is different.

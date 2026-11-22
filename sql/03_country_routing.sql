@@ -1,10 +1,4 @@
-
--- =========================================================
--- SKYPOINTS: COUNTRY-SPECIFIC MEMBER ROUTING
--- Assessment Requirement 3
--- =========================================================
-
--- 1. Load latest valid Indian member records
+-- Load latest valid Indian member records
 INSERT OVERWRITE INTO SKYPOINTS_DB.TARGET.TABLE_INDIA (
     MEMBER_NAME,
     MEMBER_ID,
@@ -50,7 +44,7 @@ QUALIFY ROW_NUMBER() OVER (
 ) = 1;
 
 
--- 2. Load latest valid Australian member records
+-- Load latest valid Australian member records
 INSERT OVERWRITE INTO SKYPOINTS_DB.TARGET.TABLE_AUSTRALIA (
     MEMBER_NAME,
     MEMBER_ID,
@@ -96,7 +90,7 @@ QUALIFY ROW_NUMBER() OVER (
 ) = 1;
 
 
--- 3. Load latest valid USA member records
+-- Load latest valid USA member records
 INSERT OVERWRITE INTO SKYPOINTS_DB.TARGET.TABLE_USA (
     MEMBER_NAME,
     MEMBER_ID,
@@ -142,7 +136,7 @@ QUALIFY ROW_NUMBER() OVER (
 ) = 1;
 
 
--- 4. Verify member counts in country targets
+-- Verify member counts in country targets
 SELECT 'INDIA' AS COUNTRY, COUNT(*) AS TOTAL_MEMBERS
 FROM SKYPOINTS_DB.TARGET.TABLE_INDIA
 
