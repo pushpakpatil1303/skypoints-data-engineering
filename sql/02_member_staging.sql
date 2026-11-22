@@ -31,8 +31,14 @@ WITH standardized AS (
         SOURCE_FILE,
         LOAD_TIMESTAMP,
 
-        -- Convert enrollment dates based on country
+        -- Convert enrollment dates
         CASE
+            WHEN SOURCE_FILE = 'members_sample.txt'
+            THEN TRY_TO_DATE(
+                TRIM(ENROLLMENT_DATE),
+                'YYYYMMDD'
+            )
+
             WHEN COUNTRY = 'USA'
                  AND LENGTH(TRIM(ENROLLMENT_DATE)) = 7
             THEN TRY_TO_DATE(
@@ -48,13 +54,19 @@ WITH standardized AS (
             )
 
             ELSE TRY_TO_DATE(
-                LEFT(ENROLLMENT_DATE, 10),
+                LEFT(TRIM(ENROLLMENT_DATE), 10),
                 'YYYY-MM-DD'
             )
         END AS ENROLLMENT_DT,
 
         -- Convert last flight dates
         CASE
+            WHEN SOURCE_FILE = 'members_sample.txt'
+            THEN TRY_TO_DATE(
+                TRIM(LAST_FLIGHT_DATE),
+                'YYYYMMDD'
+            )
+
             WHEN COUNTRY = 'USA'
                  AND LENGTH(TRIM(LAST_FLIGHT_DATE)) = 7
             THEN TRY_TO_DATE(
@@ -70,16 +82,24 @@ WITH standardized AS (
             )
 
             ELSE TRY_TO_DATE(
-                LEFT(LAST_FLIGHT_DATE, 10),
+                LEFT(TRIM(LAST_FLIGHT_DATE), 10),
                 'YYYY-MM-DD'
             )
         END AS FLIGHT_DT,
 
         -- Convert date of birth
-        TRY_TO_DATE(
-            LEFT(DOB, 10),
-            'YYYY-MM-DD'
-        ) AS DOB_DT
+        CASE
+            WHEN SOURCE_FILE = 'members_sample.txt'
+            THEN TRY_TO_DATE(
+                TRIM(DOB),
+                'MMDDYYYY'
+            )
+
+            ELSE TRY_TO_DATE(
+                LEFT(TRIM(DOB), 10),
+                'YYYY-MM-DD'
+            )
+        END AS DOB_DT
 
     FROM SKYPOINTS_DB.RAW.MEMBER_PROFILE
 ),
@@ -91,22 +111,33 @@ transformed AS (
         -- Calculate completed years of age
         CASE
             WHEN DOB_DT IS NULL THEN NULL
-            ELSE DATEDIFF(YEAR, DOB_DT, CURRENT_DATE())
-                 - IFF(
-                     DATEADD(
-                         YEAR,
-                         DATEDIFF(YEAR, DOB_DT, CURRENT_DATE()),
-                         DOB_DT
-                     ) > CURRENT_DATE(),
-                     1, 0
-                 )
+            ELSE DATEDIFF(
+                YEAR,
+                DOB_DT,
+                CURRENT_DATE()
+            )
+            - IFF(
+                DATEADD(
+                    YEAR,
+                    DATEDIFF(
+                        YEAR,
+                        DOB_DT,
+                        CURRENT_DATE()
+                    ),
+                    DOB_DT
+                ) > CURRENT_DATE(),
+                1,
+                0
+            )
         END AS CALCULATED_AGE,
 
         -- Flag members whose last flight was over 90 days ago
         CASE
             WHEN FLIGHT_DT IS NULL THEN NULL
             WHEN FLIGHT_DT < DATEADD(
-                DAY, -90, CURRENT_DATE()
+                DAY,
+                -90,
+                CURRENT_DATE()
             ) THEN TRUE
             ELSE FALSE
         END AS IS_STALE
@@ -132,3 +163,27 @@ SELECT
     SOURCE_FILE,
     LOAD_TIMESTAMP
 FROM transformed;
+
+
+-- Verify assessment flat-file records
+SELECT
+    MEMBER_NAME,
+    MEMBER_ID,
+    COUNTRY,
+    ENROLLMENT_DATE,
+    LAST_FLIGHT_DATE,
+    DOB,
+    AGE,
+    STALE_MEMBER
+FROM SKYPOINTS_DB.STAGING.MEMBER_PROFILE
+WHERE SOURCE_FILE = 'members_sample.txt'
+ORDER BY MEMBER_ID;
+
+
+-- Verify total staging records
+SELECT
+    SOURCE_FILE,
+    COUNT(*) AS TOTAL_RECORDS
+FROM SKYPOINTS_DB.STAGING.MEMBER_PROFILE
+GROUP BY SOURCE_FILE
+ORDER BY SOURCE_FILE;
